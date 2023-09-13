@@ -7,6 +7,7 @@ import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.authentication.builders.AuthenticationManagerBuilder;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
 
 @Configuration
@@ -24,6 +25,7 @@ public class SecurityConfig {
     @Bean
     SecurityFilterChain filterChain(HttpSecurity http) throws Exception{
         http.csrf(csrf -> csrf.disable());
+        http.sessionManagement(configurer -> configurer.sessionCreationPolicy(SessionCreationPolicy.STATELESS));
         http.cors(cors -> {
             cors.configurationSource(request -> {
                 var corsConfiguration = new org.springframework.web.cors.CorsConfiguration();
@@ -35,7 +37,7 @@ public class SecurityConfig {
         });
             http
             .authorizeHttpRequests((requests) -> requests
-            .requestMatchers( "/error", "/css/**", "/js/**","/api/cycles/**","/public/**","/v3/api-docs").permitAll()
+            .requestMatchers( "/error", "/css/**", "/js/**","/api/cycles/**","/public/**","/v3/api-docs","/swagger-ui.html").permitAll()
             .anyRequest().authenticated())
             .httpBasic(Customizer.withDefaults());
         
