@@ -8,7 +8,6 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AuthenticationManager;
-import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.authentication.builders.AuthenticationManagerBuilder;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
@@ -34,6 +33,7 @@ import com.nimbusds.jose.proc.SecurityContext;
 
 @Configuration
 @EnableWebSecurity
+@EnableMethodSecurity(prePostEnabled = true)
 public class SecurityConfig {
 
     @Value("${jwt.public.key}")
@@ -41,6 +41,9 @@ public class SecurityConfig {
 
     @Value("${jwt.private.key}")
     RSAPrivateKey priv;
+
+    @Autowired
+    private CorsConfig corsConfig;
 
     @Autowired
     private CustomUserDetailsService userDetailsService;
@@ -51,22 +54,19 @@ public class SecurityConfig {
     }
 
     @Bean
-    public UserDetailsService userDetailsService() {
-        return userDetailsService();
+    UserDetailsService userDetailsService() {
+        return userDetailsService;
     }
 
     @Bean
-    public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+    SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
                 .csrf(csrf -> csrf.disable())
+                .cors(cors -> cors.configurationSource(corsConfig))
                 .authorizeHttpRequests((requests) -> requests
-                        .requestMatchers("/api/auth/signup", "/api/auth/token", "/error", "/css/**", "/js/**",
-                                "/api/cycles/list")
+                        .requestMatchers("/api/auth/signup", "/api/auth/token", "/api/cycles/list")
                         .permitAll()
                         .anyRequest().authenticated())
-                .logout(withDefaults())
-                .httpBasic(withDefaults())
-                // .formLogin(withDefaults())
                 .oauth2ResourceServer(
                         oauth2ResourceServer -> oauth2ResourceServer.jwt(jwt -> jwt.decoder(jwtDecoder())))
                 .sessionManagement((session) -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))

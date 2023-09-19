@@ -14,21 +14,23 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.oauth2.jwt.JwtClaimsSet;
 import org.springframework.security.oauth2.jwt.JwtEncoder;
 import org.springframework.security.oauth2.jwt.JwtEncoderParameters;
+import org.springframework.web.bind.annotation.CrossOrigin;
 // import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.cycles.rest.binding.JwtResponse;
 import com.cycles.rest.binding.LoginRequest;
 // import com.cycles.rest.binding.MessageResponse;
 import com.cycles.rest.binding.SignUpRequest;
 import com.cycles.rest.entity.User;
 import com.cycles.rest.repository.UserRepository;
 // import com.cycles.rest.security.DomainUserService;
+import com.cycles.rest.security.UserService;
 
 // import jakarta.validation.Valid;
-
 
 @RestController
 @RequestMapping("/api/auth")
@@ -38,7 +40,7 @@ public class AuthController {
     AuthenticationManager authenticationManager;
 
     @Autowired
-    UserRepository userRepository;
+    UserService userService;
 
     @Autowired
     PasswordEncoder passwordEncoder;
@@ -47,7 +49,7 @@ public class AuthController {
     JwtEncoder jwtEncoder;
 
     @PostMapping("/token")
-    public String token(@RequestBody LoginRequest loginBody) {
+    ResponseEntity<?> token(@RequestBody LoginRequest loginBody) {
         Instant now = Instant.now();
         long expiry = 3600L;
         var username = loginBody.getUsername();
@@ -65,21 +67,27 @@ public class AuthController {
                 .subject(authentication.getName())
                 .claim("scope", scope)
                 .build();
-
-        return this.jwtEncoder.encode(JwtEncoderParameters.from(claims)).getTokenValue();
+        JwtResponse response = new JwtResponse(jwtEncoder.encode(JwtEncoderParameters.from(claims)).getTokenValue(), authentication.getName(),authentication.getAuthorities().stream()
+                .map(GrantedAuthority::getAuthority)
+                .collect(Collectors.joining(" ")));
+        
+        return ResponseEntity.ok(response);
     }
 
     @PostMapping("/signup")
     public ResponseEntity<String> registerUser(@RequestBody SignUpRequest signUpRequest) {
         try {
-            if (userRepository.existsByName(signUpRequest.getUsername())) {
+            if (userService.existsByName(signUpRequest.getUsername())) {
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Username already exists");
             }
             User user = new User();
             user.setName(signUpRequest.getUsername());
-            user.setPassword(passwordEncoder.encode(signUpRequest.getPassword()));
+            user.setPassword(signUpRequest.getPassword());
+            if (signUpRequest.getRole() == null) {
+                signUpRequest.setRole("USER");
+            }
             user.setRole(signUpRequest.getRole());
-            userRepository.save(user);
+            userService.create(user);
             return ResponseEntity.ok("User registered successfully");
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Registration failed: " + e.getMessage());
